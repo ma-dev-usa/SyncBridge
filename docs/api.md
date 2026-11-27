@@ -1,15 +1,15 @@
 # API reference
 
-Base URL: http://127.0.0.1:8080/api/v1. Protected routes require `Authorization: Bearer <key>`.
+Base URL: `http://127.0.0.1:8080`. Protected routes require `Authorization: Bearer <key>`. Paths below are complete paths relative to the base URL; health and readiness endpoints do not require authentication.
 
 | Method | Path | Purpose |
 |---|---|---|
 | GET | /healthz | Liveness (outside API prefix) |
 | GET | /readyz | Database readiness (outside API prefix) |
-| POST | /events | Validate and enqueue |
-| GET | /events | Latest 100 events, state counts, delivery count |
-| GET | /events/{id} | Event and attempt history |
-| POST | /events/{id}/replay | Requeue a dead-letter event |
+| POST | /api/v1/events | Validate and enqueue |
+| GET | /api/v1/events | Latest 100 events, state counts, delivery count |
+| GET | /api/v1/events/{id} | Event and attempt history |
+| POST | /api/v1/events/{id}/replay | Requeue a dead-letter event |
 
 | Event | Source | Target | Payload fields |
 |---|---|---|---|
