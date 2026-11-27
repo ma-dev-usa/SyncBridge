@@ -1,0 +1,61 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SyncBridge | Interactive simulation</title><style>:root{color-scheme:light;--ink:#203247;--muted:#63768a;--line:#dce4ec;--navy:#132b40;--teal:#147b76;--bg:#f4f7fa}*{box-sizing:border-box}body{margin:0;font:14px/1.55 system-ui,sans-serif;background:var(--bg);color:var(--ink)}header{background:var(--navy);color:#fff;padding:24px max(24px,calc((100vw - 1120px)/2));display:flex;align-items:center;gap:16px;justify-content:space-between}header p{margin:3px 0 0;color:#bbd0df}h1{margin:0;font-size:28px;letter-spacing:-.7px}main{max-width:1168px;margin:auto;padding:24px}h2{font-size:18px;margin:0 0 12px}.eyebrow{letter-spacing:.14em;text-transform:uppercase;font-size:11px;color:#7fbab7;font-weight:700}.panel{background:white;border:1px solid var(--line);border-radius:10px;padding:20px;margin:18px 0}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.metric{background:white;border:1px solid var(--line);padding:16px;border-radius:8px}.metric strong{font-size:28px;display:block;font-variant-numeric:tabular-nums}.metric span,small,.muted{color:var(--muted)}button,input{font:inherit}button{border:0;background:#146d6a;color:white;border-radius:6px;padding:9px 13px;cursor:pointer;margin:4px 6px 4px 0}button.secondary{background:#e9eff5;color:#263d51}button:disabled{opacity:.5;cursor:not-allowed}input{border:1px solid #a7b7c8;border-radius:5px;padding:8px;max-width:100%}table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:11px 9px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}th{color:#52677b;background:#f2f5f8;font-size:11px;text-transform:uppercase;letter-spacing:.05em}.scroll{overflow:auto}.pill{display:inline-block;border-radius:4px;padding:3px 7px;font-weight:650;font-size:11px;text-transform:uppercase;background:#eaf0f5}.delivered{background:#dcefe8;color:#17634e}.retry{background:#fff0d6;color:#865512}.dead{background:#f8e2e0;color:#9b352f}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#edf2f6;padding:12px;border-radius:5px}#error{color:#a63229}a{color:#146d6a}@media(max-width:720px){.metrics{grid-template-columns:repeat(2,1fr)}header{padding:20px}main{padding:14px}}</style></head><body><header><div><div class="eyebrow">Integration operations</div><h1>SyncBridge</h1><p>Event delivery and recovery</p></div><small style="color:#c6d8e5">Interactive simulation</small></header><main><section class="panel"><h2>Integration scenario</h2><p>Four fictional events across three application routes. Step through delivery attempts, retries and a permanent rejection. The simulated clock advances to the next due event automatically.</p><button id="step">Process next event</button><button id="all">Process all</button><button id="reset" class="secondary">Reset scenario</button><p class="muted" id="clock"></p></section><div class="metrics" id="metrics"></div><section class="panel"><h2>Event ledger</h2><div class="scroll"><table><thead><tr><th>Event ID</th><th>Route</th><th>State</th><th>Attempts</th><th>Last result</th><th>Action</th></tr></thead><tbody id="rows"></tbody></table></div></section><section class="panel"><h2>Attempt history</h2><pre id="history">Select an event to inspect its delivery history.</pre></section><p class="muted">Standalone simulation. The service implementation persists the same state transitions in SQLite.</p></main><script>function mapEvent(event) {
+  const rules = {
+    "customer.updated": {source:"crm",target:"erp",fields:["customer_id","name","email"]},
+    "order.created": {source:"commerce",target:"erp",fields:["order_id","customer_id","sku","quantity"]},
+    "inventory.updated": {source:"erp",target:"commerce",fields:["sku","quantity"]}
+  };
+  if(!event||typeof event!=="object"||Array.isArray(event))throw Error("Expected an event object");
+  const {id,type,source,payload}=event;
+  if(typeof id!=="string"||!/^[A-Za-z0-9_.:-]{1,80}$/.test(id))throw Error("Invalid event id");
+  if(!Object.hasOwn(rules,type)||rules[type].source!==source)throw Error("Unsupported event route");
+  if(!payload||typeof payload!=="object"||Array.isArray(payload))throw Error("Invalid payload");
+  const rule=rules[type],data={};
+  for(const field of rule.fields){
+    const value=payload[field];
+    if(field==="quantity"){if(!Number.isSafeInteger(value)||value<0||value>1000000000||(type==="order.created"&&value===0))throw Error("Invalid quantity");}
+    else if(typeof value!=="string"||!value.trim()||value.length>200)throw Error("Invalid "+field);
+    data[field]=typeof value==="string"?value.trim():value;
+  }
+  if(type==="customer.updated"&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email))throw Error("Invalid email");
+  return {id,type,source,target:rule.target,data};
+}
+
+function failureDecision(attempt,permanent,now,maxAttempts=4){
+  if(permanent||attempt>=maxAttempts)return {status:"dead",nextAt:now};
+  return {status:"retry",nextAt:now+Math.min(60000,1000*2**(attempt-1))};
+}
+
+function simulateDelivery(event,attempt,mode){
+  if(mode==="permanent")return {ok:false,permanent:true,message:"Target rejected record (422)"};
+  if(mode==="transient"&&attempt<=2)return {ok:false,permanent:false,message:"Target temporarily unavailable (503)"};
+  return {ok:true,message:"Target accepted record (200)"};
+}
+const el=id=>document.getElementById(id);
+function render(events,counts){
+  el('metrics').replaceChildren();el('rows').replaceChildren();
+  for(const [name,value] of Object.entries(counts)){
+    const box=document.createElement('div');box.className='metric';
+    const title=document.createElement('span');title.textContent=name.toUpperCase();
+    const number=document.createElement('strong');number.textContent=value;box.append(title,number);el('metrics').append(box);
+  }
+  for(const e of events){
+    const tr=document.createElement('tr');
+    for(const [i,value] of [e.id,e.source+' / '+e.target,e.status,e.attempts,e.last_error||'None'].entries()){
+      const td=document.createElement('td');
+      if(i===2){const s=document.createElement('span');s.className='pill '+e.status;s.textContent=e.status;td.append(s);}
+      else td.textContent=value;
+      tr.append(td);
+    }
+    const td=document.createElement('td'),inspect=document.createElement('button');inspect.className='secondary';inspect.textContent='Inspect';inspect.onclick=()=>inspectEvent(e.id);td.append(inspect);
+    if(e.status==='dead'){const b=document.createElement('button');b.textContent='Replay';b.onclick=()=>replayEvent(e.id);td.append(b);}
+    tr.append(td);el('rows').append(tr);
+  }
+}
+const fixtures=[{"id":"evt-1001","type":"customer.updated","source":"crm","payload":{"customer_id":"C-100","name":"Northline Supply","email":"ops@example.test"},"mode":"normal"},{"id":"evt-1002","type":"order.created","source":"commerce","payload":{"order_id":"O-210","customer_id":"C-100","sku":"SKU-42","quantity":8},"mode":"transient"},{"id":"evt-1003","type":"inventory.updated","source":"erp","payload":{"sku":"SKU-42","quantity":120},"mode":"normal"},{"id":"evt-1004","type":"order.created","source":"commerce","payload":{"order_id":"O-211","customer_id":"C-100","sku":"SKU-99","quantity":3},"mode":"permanent"}];let events=[],now=0;
+function redraw(){const counts={queued:0,retry:0,delivered:0,dead:0};events.forEach(e=>counts[e.status]++);render(events,counts);el('clock').textContent='Simulated elapsed time: '+(now/1000)+'s';el('step').disabled=el('all').disabled=!events.some(e=>e.status==='queued'||e.status==='retry');}
+function reset(){now=0;events=fixtures.map(x=>({...mapEvent(x),mode:x.mode,status:'queued',attempts:0,nextAt:0,history:[]}));el('history').textContent='Select an event to inspect its delivery history.';redraw();}
+function step(){const e=events.filter(x=>x.status==='queued'||x.status==='retry').sort((a,b)=>a.nextAt-b.nextAt||a.id.localeCompare(b.id))[0];if(!e)return false;now=Math.max(now,e.nextAt);e.attempts++;const r=simulateDelivery(e,e.attempts,e.mode);Object.assign(e,r.ok?{status:'delivered',nextAt:now}:failureDecision(e.attempts,r.permanent,now));e.last_error=r.ok?null:r.message;e.history.push({at:now,attempt:e.attempts,outcome:e.status,detail:r.message});redraw();return true;}
+function inspectEvent(id){el('history').textContent=JSON.stringify(events.find(e=>e.id===id),null,2);}
+function replayEvent(id){const e=events.find(x=>x.id===id);if(e.status!=='dead')return;e.status='queued';e.attempts=0;e.nextAt=now;e.last_error=null;e.history.push({at:now,outcome:'replayed'});redraw();}
+el('step').onclick=step;el('all').onclick=()=>{while(step());};el('reset').onclick=reset;reset();
+</script></body></html>
