@@ -41,7 +41,8 @@ async function body(req) {
 const server=http.createServer(async(req,res)=>{
   let p='';
   try {
-    p=new URL(req.url,'http://localhost').pathname;
+    try { p=decodeURIComponent(new URL(req.url,'http://localhost').pathname); }
+    catch { return json(res,400,{error:'Malformed URL'}); }
     const m=req.method;
     if(m==='GET'&&p==='/healthz')return json(res,200,{status:'ok'});
     if(m==='GET'&&p==='/readyz'){store.stats();return json(res,200,{status:'ready'});}
@@ -57,7 +58,7 @@ const server=http.createServer(async(req,res)=>{
       let r;try{r=store.ingest(input,mode);}catch(e){if(e.code?.startsWith('ERR_SQLITE'))throw e;return json(res,422,{error:e.message});}
       return json(res,r.conflict?409:r.duplicate?200:202,r);
     }
-    const match=p.match(/^\/api\/v1\/events\/([A-Za-z0-9_.:-]{1,80})(\/replay)?$/);
+    const match=p.match(/^\/api\/v1\/events\/([A-Za-z0-9][A-Za-z0-9_.:-]{0,79})(\/replay)?$/);
     if(match){
       const id=match[1];
       if(m==='GET'&&!match[2]){const event=store.get(id);return json(res,event?200:404,event?{event,history:store.history(id)}:{error:'Not found'});}
@@ -71,6 +72,6 @@ const timer=setInterval(()=>{
   try {for(let i=0;i<50;i++){const r=store.tick();if(!r)break;console.log(JSON.stringify({level:'info',event:'delivery_attempt',...r}));}}
   catch(e){console.error(JSON.stringify({level:'error',message:'worker failed'}));}
 },250);
-server.listen(port,host,()=>console.log(JSON.stringify({level:'info',event:'listening',host,port,simulation})));
+server.listen(port,host,()=>console.log(JSON.stringify({level:'info',event:'listening',host,port:server.address().port,simulation})));
 function shutdown(){clearInterval(timer);server.close(()=>{store.close();process.exit(0);});setTimeout(()=>process.exit(1),10000).unref();}
 process.on('SIGTERM',shutdown);process.on('SIGINT',shutdown);

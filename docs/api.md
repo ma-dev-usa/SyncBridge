@@ -17,7 +17,7 @@ Base URL: http://127.0.0.1:8080/api/v1. Protected routes require `Authorization:
 | order.created | commerce | erp | order_id, customer_id, sku, quantity |
 | inventory.updated | erp | commerce | sku, quantity |
 
-IDs are 1–80 characters using letters, digits, periods, underscores, colons or hyphens. Quantities are integers between 0 and 1 billion; orders require positive quantities. String fields are trimmed and capped at 200 characters. Unmapped fields are ignored.
+IDs are 1–80 characters, starting with a letter or digit; subsequent characters may also include periods, underscores, colons or hyphens. Quantities are integers between 0 and 1 billion; orders require positive quantities. String fields are trimmed and capped at 200 characters. Unmapped fields are ignored.
 
 POST returns 202 for new work, 200 for identical normalized duplicates, 409 for conflicting IDs, 422 for invalid events, 400 for malformed input or disabled fault injection, and 401 for invalid credentials. Delivery is asynchronous.
 

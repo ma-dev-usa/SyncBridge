@@ -6,8 +6,8 @@
   };
   if(!event||typeof event!=="object"||Array.isArray(event))throw Error("Expected an event object");
   const {id,type,source,payload}=event;
-  if(typeof id!=="string"||!/^[A-Za-z0-9_.:-]{1,80}$/.test(id))throw Error("Invalid event id");
-  if(!Object.hasOwn(rules,type)||rules[type].source!==source)throw Error("Unsupported event route");
+  if(typeof id!=="string"||!/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$/.test(id))throw Error("Invalid event id");
+  if(typeof type!=="string"||!Object.hasOwn(rules,type)||rules[type].source!==source)throw Error("Unsupported event route");
   if(!payload||typeof payload!=="object"||Array.isArray(payload))throw Error("Invalid payload");
   const rule=rules[type],data={};
   for(const field of rule.fields){

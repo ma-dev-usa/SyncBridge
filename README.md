@@ -62,7 +62,7 @@ Fault injection is disabled by default. The service binds to localhost by defaul
 npm test
 ```
 
-The suite covers event mapping, invalid inputs, retry scheduling, idempotency conflicts, restart recovery, dead-letter replay and a 10,000-event synthetic workload. The workload checks delivery counts, not a throughput SLA. CI is configured for pushes and pull requests.
+The suite covers mapping, input validation, retry scheduling, idempotency, restart recovery, dead-letter replay, HTTP authentication and ingestion, and a 10,000-event synthetic workload. The workload checks delivery counts, not a throughput SLA. CI is configured for pushes and pull requests.
 
 ## Scope
 
