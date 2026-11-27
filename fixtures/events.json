@@ -1,0 +1,47 @@
+[
+  {
+    "id": "evt-1001",
+    "type": "customer.updated",
+    "source": "crm",
+    "payload": {
+      "customer_id": "C-100",
+      "name": "Northline Supply",
+      "email": "ops@example.test"
+    },
+    "mode": "normal"
+  },
+  {
+    "id": "evt-1002",
+    "type": "order.created",
+    "source": "commerce",
+    "payload": {
+      "order_id": "O-210",
+      "customer_id": "C-100",
+      "sku": "SKU-42",
+      "quantity": 8
+    },
+    "mode": "transient"
+  },
+  {
+    "id": "evt-1003",
+    "type": "inventory.updated",
+    "source": "erp",
+    "payload": {
+      "sku": "SKU-42",
+      "quantity": 120
+    },
+    "mode": "normal"
+  },
+  {
+    "id": "evt-1004",
+    "type": "order.created",
+    "source": "commerce",
+    "payload": {
+      "order_id": "O-211",
+      "customer_id": "C-100",
+      "sku": "SKU-99",
+      "quantity": 3
+    },
+    "mode": "permanent"
+  }
+]

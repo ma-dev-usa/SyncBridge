@@ -1,0 +1,17 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {mapEvent,failureDecision,simulateDelivery} from '../src/core.mjs';
+const fixtures=[{"id":"evt-1001","type":"customer.updated","source":"crm","payload":{"customer_id":"C-100","name":"Northline Supply","email":"ops@example.test"},"mode":"normal"},{"id":"evt-1002","type":"order.created","source":"commerce","payload":{"order_id":"O-210","customer_id":"C-100","sku":"SKU-42","quantity":8},"mode":"transient"},{"id":"evt-1003","type":"inventory.updated","source":"erp","payload":{"sku":"SKU-42","quantity":120},"mode":"normal"},{"id":"evt-1004","type":"order.created","source":"commerce","payload":{"order_id":"O-211","customer_id":"C-100","sku":"SKU-99","quantity":3},"mode":"permanent"}];
+const mapped=fixtures.map(mapEvent);
+test("customer maps CRM to ERP",()=>assert.ok((()=>mapped[0].target==="erp")()));
+test("order maps commerce to ERP",()=>assert.ok((()=>mapped[1].data.quantity===8)()));
+test("inventory maps ERP to commerce",()=>assert.ok((()=>mapped[2].target==="commerce")()));
+test("first retry after one second",()=>assert.ok((()=>failureDecision(1,false,100).nextAt===1100)()));
+test("second retry after two seconds",()=>assert.ok((()=>failureDecision(2,false,100).nextAt===2100)()));
+test("fourth failure becomes dead",()=>assert.ok((()=>failureDecision(4,false,100).status==="dead")()));
+test("permanent failure skips retry",()=>assert.ok((()=>failureDecision(1,true,100).status==="dead")()));
+test("transient failure resolves on third attempt",()=>assert.ok((()=>!simulateDelivery(mapped[1],2,"transient").ok&&simulateDelivery(mapped[1],3,"transient").ok)()));
+test("invalid source rejected",()=>assert.ok((()=>{try{mapEvent({...fixtures[0],source:"erp"});return false;}catch{return true;}})()));
+test("negative quantity rejected",()=>assert.ok((()=>{try{mapEvent({...fixtures[2],payload:{sku:"X",quantity:-1}});return false;}catch{return true;}})()));
+test("unknown route rejected",()=>assert.ok((()=>{try{mapEvent({...fixtures[0],type:"unknown"});return false;}catch{return true;}})()));
+test("extra payload fields excluded",()=>assert.ok((()=>!Object.hasOwn(mapEvent({...fixtures[0],payload:{...fixtures[0].payload,secret:"x"}}).data,"secret"))()));

@@ -1,0 +1,14 @@
+{
+  "name": "syncbridge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Durable enterprise integration event delivery, retries and replay",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test tests/*.test.mjs"
+  }
+}
