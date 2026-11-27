@@ -19,3 +19,9 @@ Four synthetic events exercise the normal, retry and dead-letter paths. The tran
 | 3000 | evt-1002 | 3 | delivered |
 
 The [fixture](../fixtures/events.json) and [browser simulation](../demo.html) reproduce this scenario. These are simulated integration results.
+
+## Local verification
+
+The backend was exercised on Node.js 22.16.0 with SQLite using the same source blobs as the repository. A 10,000-event synthetic run with repeated submissions produced 10,000 distinct delivery receipts. Retry scheduling, conflicting IDs, restart recovery and dead-letter replay passed. The HTTP integration test also passed, covering authentication, ingestion, duplicate handling and replay.
+
+The project targets Node.js 24; the GitHub Actions workflow is configured to validate that runtime and build the container.
